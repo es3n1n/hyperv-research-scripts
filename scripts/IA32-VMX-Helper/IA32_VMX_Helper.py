@@ -55,7 +55,7 @@ def AddSymbolicConstantsEnumsToIda():
     # Based on @AmarSaar post [https://msrc-blog.microsoft.com/2018/12/10/first-steps-in-hyper-v-research]
     # Notice these values can change between different builds!
     # ------------------------------------------------------------------------------------- #
-    id = idc.add_enum(0, "HYPERV_STRUCTS", idaapi.hexflag())
+    id = idc.add_enum(0, "HYPERV_STRUCTS", idaapi.hex_flag())
     idc.add_enum_member(id, "Self", 0, -1)
     idc.add_enum_member(id, "CpuIndex", 8, -1)
     idc.add_enum_member(id, "CurrentThread", 0x38, -1)
@@ -69,7 +69,7 @@ def AddSymbolicConstantsEnumsToIda():
 
 
     #https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/hvilib/hviintel/cpuid_result.htm
-    id = idc.add_enum(0, "HV_CPUID_FUNCTION_ENUM", idaapi.hexflag())
+    id = idc.add_enum(0, "HV_CPUID_FUNCTION_ENUM", idaapi.hex_flag())
     idc.add_enum_member(id, "HvCpuIdFunctionVersionAndFeatures", 0x00000001, -1)
     idc.add_enum_member(id, "HvCpuIdFunctionHvVendorAndMaxFunction", 0x40000000, -1)
     idc.add_enum_member(id, "HvCpuIdFunctionHvInterface", 0x40000001, -1)
@@ -90,7 +90,7 @@ def AddSymbolicConstantsEnumsToIda():
     # ------------------------------------------------------------------------------------- #
     # Exit Reasons
     # ------------------------------------------------------------------------------------- #
-    id = idc.add_enum(0, "IA32_VMX_EXIT_REASONS_ENUM", idaapi.hexflag())
+    id = idc.add_enum(0, "IA32_VMX_EXIT_REASONS_ENUM", idaapi.hex_flag())
     idc.add_enum_member(id, "EXIT_REASON_EXCEPTION_NMI", 0x0, -1)
     idc.add_enum_member(id, "EXIT_REASON_EXTERNAL_INTERRUPT", 0x1, -1)
     idc.add_enum_member(id, "EXIT_REASON_TRIPLE_FAULT", 0x2, -1)
@@ -161,7 +161,7 @@ def AddSymbolicConstantsEnumsToIda():
     # ------------------------------------------------------------------------------------- #
     # MSR
     # ------------------------------------------------------------------------------------- #
-    id = idc.add_enum(0, "IA32_MSR_LIST_ENUM", idaapi.hexflag())
+    id = idc.add_enum(0, "IA32_MSR_LIST_ENUM", idaapi.hex_flag())
     idc.add_enum_member(id, "HV_X64_MSR_GUEST_OS_ID", 0x40000000, -1)
     idc.add_enum_member(id, "HV_X64_MSR_HYPERCALL", 0x40000001, -1)
     idc.add_enum_member(id, "HV_X64_MSR_VP_INDEX", 0x40000002, -1)
@@ -671,7 +671,7 @@ def AddSymbolicConstantsEnumsToIda():
     # ------------------------------------------------------------------------------------- #
     # VMCS 
     # ------------------------------------------------------------------------------------- #
-    id = idc.add_enum(0, "IA32_VMCS_LIST_ENUM", idaapi.hexflag())
+    id = idc.add_enum(0, "IA32_VMCS_LIST_ENUM", idaapi.hex_flag())
     idc.add_enum_member(id, "VMCS_CTRL_VPID", 0x0, -1)
     idc.add_enum_member(id, "VMCS_CTRL_POSTED_INTR_NOTIFY_VECTOR", 0x2, -1)
     idc.add_enum_member(id, "VMCS_CTRL_EPTP_INDEX", 0x4, -1)
@@ -1822,13 +1822,13 @@ class SymbolicConstant(object):
             return None
 
         item_constant = idc.get_first_enum_member(enum_id, -1)
-        item_name     = idc.get_enum_member_name(idc.GetConstEx(enum_id, item_constant, 0, -1))
+        item_name     = idc.get_enum_member_name(idc.get_enum_member(enum_id, item_constant, 0, -1))
 
         self.result.append([item_name,item_constant, enum_id])
 
         for i in range(enum_count):
             item_constant = idc.get_next_enum_member(enum_id, item_constant, -1)
-            item_name = idc.get_enum_member_name(idc.GetConstEx(enum_id, item_constant, 0, -1))
+            item_name = idc.get_enum_member_name(idc.get_enum_member(enum_id, item_constant, 0, -1))
 
             self.result.append([item_name,item_constant, enum_id])
 
@@ -1914,7 +1914,7 @@ class Ia32MsrAnalyzePass(object):
             return
         item_name, enum_id = ret
         if enum_id  and self.ia32_msr_db.get(msr_code)== item_name:
-            idc.OpEnumEx(inst_ea, 1,enum_id,0 )
+            idc.op_enum(inst_ea, 1,enum_id,0 )
 
     def GetMsrCodeFromOperand(self,inst_ea):
         curr_inst = Instruction_t(inst_ea)
@@ -1993,10 +1993,20 @@ class Ia32MsrAnalyzePass(object):
 
             if(self.enable_comment):
                 comment_message = '{}({})'.format(mnemonic,msr_name)
-                idc.MakeComm(self.inst_ea, comment_message)
+                idc.set_cmt(self.inst_ea, comment_message, 0)
+
+                try:
+                    func = idaapi.decompile(self.inst_ea)
+                    tl = idaapi.treeloc_t()
+                    tl.ea = self.inst_ea
+                    tl.itp = idaapi.ITP_SEMI
+                    func.set_user_cmt(tl, comment_message)
+                    func.save_user_cmts()
+                except idaapi.DecompilationFailure:
+                    pass
             
             if(self.enable_colorize):
-                idc.SetColor(self.inst_ea,idc.CIC_ITEM, self.color)
+                idc.set_color(self.inst_ea,idc.CIC_ITEM, self.color)
 
             if(self.enable_symbolic_constants and msr_code != None):
                 self.SetSymbolcsConstantOfMsrCode(self.msr_code_imm_ea,msr_code)
@@ -2047,7 +2057,7 @@ class Ia32VmcsAnalyzePass(object):
             return
         item_name, enum_id = ret
         if enum_id  and self.ia32_vmcs_db.get(vmcs_code)== item_name:
-            idc.OpEnumEx(inst_ea, 1,enum_id,0 )
+            idc.op_enum(inst_ea, 1,enum_id,0 )
 
     def GetValueRegister(self,inst_ea):
         """
@@ -2147,13 +2157,23 @@ class Ia32VmcsAnalyzePass(object):
 
             if(self.enable_comment):
                 comment_message = '{}({}, {})'.format(mnemonic,vmcs_name,self.GetValueRegister(self.inst_ea))
-                idc.MakeComm(self.inst_ea, comment_message)
+                idc.set_cmt(self.inst_ea, comment_message, 0)
+
+                try:
+                    func = idaapi.decompile(self.inst_ea)
+                    tl = idaapi.treeloc_t()
+                    tl.ea = self.inst_ea
+                    tl.itp = idaapi.ITP_SEMI
+                    func.set_user_cmt(tl, comment_message)
+                    func.save_user_cmts()
+                except idaapi.DecompilationFailure:
+                    pass
             
             if(self.enable_colorize):
-                idc.SetColor(self.inst_ea,idc.CIC_ITEM, self.color)
+                idc.set_color(self.inst_ea,idc.CIC_ITEM, self.color)
 
-            if(self.enable_symbolic_constants and vmcs_code != None):
-                self.SetSymbolcsConstantOfVmcsCode(self.vmcs_code_imm_ea,vmcs_code)
+            if(self.enable_symbolic_constants and vmcs_code  != None):
+                self.SetSymbolcsConstantOfVmcsCode(self.vmcs_code_imm_ea,vmcs_code )
 
             self.gui_report_rows.append(ReportEntry(
                                         self.inst_ea,
